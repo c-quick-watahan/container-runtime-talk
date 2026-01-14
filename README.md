@@ -11,9 +11,15 @@
 9. Kahoot
 10. Q&A
 
-11. Intro? Who am I?
+## Section 1: Intro - Who am I?
 
-- SWE at Watahan in Tokyo. During my lunch break one day, I was thinking about the Docker environment, like I'm sure everyone here spends their lunch breaks. Staring at my bento lunch from Life, I started thinking about the meaning of containers and what when into them. I learned the basics of what containers are and decided to venture on a journey to learn to make my own. I was curious about Docker under the hood. Project is so cleverly called: bento.
+Hi, Rustaceans. My name is Carlo Quick and I am a SWE at Watahan in Tokyo. Like many of you, I sometimes spend my lunch breaks thinking about Docker containers. So one day I'm sitting in the park outside work, eating a bento - if you've never had one, they're these pre-packaged meals you can get almost anywhere in Japan - and I realize I have no idea what a container actually is under the hood. (On this one particular lunch break, I found myself staring at my bento container wondering what Docker does under the hood.)
+
+I set out to learn the basics and quickly became very interested. I don't want to get ahead of myself. We'll visit what became of my lunch later in the talk.
+
+Today, we are going to build a Minimal Viable Rootless Container in Rust. By the end of this talk, you'll understand how containers actually isolate processes and have the tools to build one yourself.
+
+So let's get started by understanding the differences between virtual machines and containers.
 
 2. VMs vs. Containers (namespaces and cgroups)
 
