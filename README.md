@@ -1,153 +1,107 @@
-# Building Container Isolation in Rust
-## Annotated Talk Draft with Review Notes
+**Talk Structure: "Building Container Isolation in Rust"**
 
----
+1. Intro? Who am I?
+2. VMs vs. Containers (namespaces and cgroups)
+3. Rootless Containers
+4. Why Rust?
+5. nix Crate
+6. Building a MVRC (minimal viable rootless container)
+7. [Optional] Compare to GO
+8. Bento Demo
+9. Kahoot
+10. Q&A
 
-## Proposed Structure
+11. Intro? Who am I?
 
-| # | Section | Status |
-|---|---------|--------|
-| 1 | Intro - Who am I? | Solid hook |
-| 2 | VMs vs. Containers | Needs cgroups decision |
-| 3 | Rootless Containers | Demo decision pending |
-| 4 | Why Rust? | Could combine with #5 |
-| 5 | nix Crate | Could combine with #4 |
-| 6 | Building a MVRC | Main event - needs flow work |
-| 7 | [Optional] Compare to Go | Cut unless time permits |
-| 8 | Bento Demo | Clarify: different from MVRC? |
-| 9 | Kahoot | Cross bridge when we get there |
-| 10 | Q&A | Standard |
+- SWE at Watahan in Tokyo. During my lunch break one day, I was thinking about the Docker environment, like I'm sure everyone here spends their lunch breaks. Staring at my bento lunch from Life, I started thinking about the meaning of containers and what when into them. I learned the basics of what containers are and decided to venture on a journey to learn to make my own. I was curious about Docker under the hood. Project is so cleverly called: bento.
 
----
+2. VMs vs. Containers (namespaces and cgroups)
 
-## Section 1: Intro - Who am I?
+Before starting this project, I assumed two things were the possible outcomes of running
+`docker run -it --name my-ubuntu-container ubuntu /bin/bash`
 
-### Your Draft
-> SWE at Watahan in Tokyo. During my lunch break one day, I was thinking about the Docker environment, like I'm sure everyone here spends their lunch breaks. Staring at my bento lunch from Life, I started thinking about the meaning of containers and what went into them. I learned the basics of what containers are and decided to venture on a journey to learn to make my own. I was curious about Docker under the hood. Project is so cleverly called: bento.
+1. I thought their were a bunch of vms running on my mac
+2. magic
 
-### Notes
-✅ **The bento story works.** It's personal, relatable, and explains the project name naturally.
+I first started with VM vs Container
 
-⚠️ **Consider adding:** What's the takeaway for the audience? "By the end of this talk, you'll understand how containers actually isolate processes and have the tools to build one yourself."
+**Containers** vs **VMs**: What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
 
-⚠️ **Timing:** Keep this to ~2 minutes max. The story is good but don't let it stretch.
+**vms**:
 
----
+- hardware virtualization
+  machine vitualization
+- vm isolated operating system (hypervisors)
+- hypervisor = software to divy up resources from the computer host
+  vcpu, vram, vnet
 
-## Section 2: VMs vs. Containers (namespaces and cgroups)
+-> hypervisor = responsible for creating these virtualized instances of each component that make the machines
+-> hardware
 
-### Your Draft
-> Before starting this project, I assumed two things were the possible outcomes of running `docker run -it --name my-ubuntu-container ubuntu /bin/bash`:
-> 1. I thought there were a bunch of VMs running on my mac
-> 2. magic
+containers:
 
-**VMs:**
-- hardware virtualization / machine virtualization
-- VM isolated operating system (hypervisors)
-- hypervisor = software to divvy up resources from the computer host (vcpu, vram, vnet)
-- hypervisor → responsible for creating virtualized instances of each component
+- isolated processes [!!REMINDER!!] Dont forget to mention the OFFICE reference
+- shared os but think they are separate os, independent from the rest.
 
-**Containers:**
-- isolated processes `[!!REMINDER!! Don't forget to mention the OFFICE reference]`
-- shared OS but think they are separate OS, independent from the rest
-- concept isn't necessarily new, but their usage has become quite popular/standard
-- operating system level virtualization
+concept isn't necessarily new, but their usage has become quite popular or standard -
+operating system level virtualization
+-> containers
+-> host os: hosts the containers
+-> kernel
+-> hardware
 
-**Linux kernel specifics:**
-- **namespaces** - restrict what the process can see `[!!!LIZRICEQUOTE!!!]`
-- **cgroups** - resource control `[!!!ELABORATE!!!]`
-  - pseudo-filesystem
-  - usable resources
+linux kernel (specific, explain that a linux vm, container, linux machine, or wsl2 are needed to follow along as these topics are specific to the linux kernel) -
+**namespaces**
 
-`[CLAUDE, show the namespaces for a process now or when doing the container?]`
+- namespaces restrict what the process can see [!!!LIZRICEQUOTE!!!]
+  set using kernel syscalls
+  [CLAUDE, show the namespaces for a process now or when doing the container?]
 
-`[Claude, is there a good way to show or demonstrate cgroups? Should I, if I'm not actually talking about cgroups in the talk?]`
+**cgroups** = resource control [!!!ELABORATE!!!]
+What resources the process can use.
 
-### Notes
-✅ **"VMs or magic" framing is good.** Honest and gets a laugh.
+- pseudo-filesystem
+- usable resources
+  [Claude, is there a good way to show or demonstrate this? Should I, if I'm not actually talking about the cgroups in the talk.]
 
-✅ **The VM vs Container breakdown is correct** and hits the key points.
+3. Rootless Containers
 
-❌ **DECISION NEEDED: cgroups.** You mention them here but explicitly skip them later. Pick one:
-- **Option A:** Cut cgroups entirely. Say "Containers use namespaces for isolation and cgroups for resource limits. Today we're focusing on namespaces - cgroups is a whole separate talk."
-- **Option B:** Give cgroups 60 seconds. Show `/sys/fs/cgroup/` briefly, explain it controls CPU/memory limits, move on.
+containers are lightweight and portable process isolation on the host machine. Since they share are host kernel, additional security needs to be implemented to ensure proper isolation.
 
-I'd recommend **Option A** for a first talk. Cleaner scope.
+By default, containers, for example, from Docker run as root from the host. Unless specified, they run as root which is the same root as on the host.
 
-❓ **Show namespaces here or during MVRC build?** 
-→ **Recommendation:** Brief conceptual mention here ("namespaces are kernel features that restrict what a process can see"), then the actual `ls /proc/<pid>/ns` demo during the MVRC section when it's directly relevant.
+Rootless Containers run with non-root users to mitigate potntial vulnerabilities.
 
-❓ **What's the OFFICE reference?** Make sure you actually remember it during the talk - write out the actual line you want to say.
+Today we'll bne building a MVRC (minimal viable rootless container) in Rust.
 
-⚠️ **Linux-only disclaimer:** Good that you mention WSL2/Linux VM needed. Consider a slide with "Prerequisites: Linux kernel (WSL2, VM, or native Linux)" so people know upfront.
+[EXAMPLE]
+[Claude, should I show this example or not? It may take too long and not super important especially if I have to wait for Docker to do shit.]
+run docker container, sleep 1000, then in another terminal ps -eaf | grep sleep and show it's as root (not container root). Mention you can run docker containers rootles, but arent be default.
 
----
+4. Why Rust?
 
-## Section 3: Rootless Containers
+I was looking for a project while going through the Rust book and thus began my journey on my project.
 
-### Your Draft
-> Containers are lightweight and portable process isolation on the host machine. Since they share the host kernel, additional security needs to be implemented to ensure proper isolation.
->
-> By default, containers, for example, from Docker run as root from the host. Unless specified, they run as root which is the same root as on the host.
->
-> Rootless Containers run with non-root users to mitigate potential vulnerabilities.
->
-> Today we'll be building a MVRC (minimal viable rootless container) in Rust.
+I understood the project was going to be quite complicated so I thought no better reason than to fascilitate this preciecd complexity with the safety that rust offer.
 
-`[EXAMPLE - Claude, should I show this example or not? It may take too long and not super important especially if I have to wait for Docker to do shit.]`
-> Run docker container, sleep 1000, then in another terminal `ps -eaf | grep sleep` and show it's as root (not container root). Mention you can run docker containers rootless, but aren't by default.
+There was the learning curve of course, but using rust forced me to think deeply before implementation. Even though I struggled with error handling, I was glad it was there.
 
-### Notes
-✅ **The explanation is clear and correct.**
+I don't have an current metrics but I can refer you to the other major player in the Rust containization field - youki.
+[picture and description of youki metrics and inspiration to use Rust]
 
-❓ **The Docker demo question:** This is actually important context. Without seeing *why* root-in-container = root-on-host is a problem, the audience might not care about rootless.
+From youki:
+Here is why we are writing a new container runtime in Rust.
 
-**Recommendations:**
-1. **Pre-record it.** 30-second screen capture. Narrate live over the recording. Zero risk of Docker being slow.
-2. **Or use a static slide** showing the terminal output of `ps -eaf | grep sleep` with arrows pointing to "UID 0 = root on host"
+    Rust is one of the best languages to implement the oci-runtime spec. Many very nice container tools are currently written in Go. However, the container runtime requires the use of system calls, which requires a bit of special handling when implemented in Go. This is tricky (e.g. namespaces(7), fork(2)); with Rust too, but it's not that tricky. And, unlike in C, Rust provides the benefit of memory safety. While Rust is not yet a major player in the container field, it has the potential to contribute a lot: something this project attempts to exemplify.
 
-The point is: make the "why this matters" visual without live demo risk.
+[!!REMINDER!!] Find an example here to demonstrate this. [!!!OPTIONAL!!!] Reference Go example later.
 
-⚠️ **Typo:** "we'll bne building" → "we'll be building"
+5. nix Crate
+   My bff crate is nix. It provides a safe alternative to unsafe APIs that are exposed by the libc crate.
 
----
+"Nix provides a safe alternative to the unsafe APIs exposed by the libc crate. This is done by wrapping the libc functionality with types/abstractions that enforce legal/safe usage." - https://docs.rs/crate/nix/latest
 
-## Section 4: Why Rust?
-
-### Your Draft
-> I was looking for a project while going through the Rust book and thus began my journey on my project.
->
-> I understood the project was going to be quite complicated so I thought no better reason than to facilitate this perceived complexity with the safety that Rust offers.
->
-> There was the learning curve of course, but using Rust forced me to think deeply before implementation. Even though I struggled with error handling, I was glad it was there.
-
-**youki quote:**
-> "Rust is one of the best languages to implement the oci-runtime spec. Many very nice container tools are currently written in Go. However, the container runtime requires the use of system calls, which requires a bit of special handling when implemented in Go. This is tricky (e.g. namespaces(7), fork(2)); with Rust too, but it's not that tricky. And, unlike in C, Rust provides the benefit of memory safety."
-
-`[!!REMINDER!! Find an example here to demonstrate this.]`
-`[!!!OPTIONAL!!! Reference Go example later.]`
-
-### Notes
-✅ **Honest framing:** "I was learning Rust and wanted a real project" is relatable.
-
-⚠️ **Consider combining with Section 5 (nix crate).** They're both "why Rust/how Rust" and together they're maybe 3-4 minutes. Keeps momentum.
-
-❓ **Go comparison:** You have it as optional in Section 7 and mentioned here. Make one decision:
-- If you're going to show Go's fork complexity, do it HERE as part of "why Rust" (2 slides max)
-- Or cut it entirely
-
-The youki quote already makes the point. Showing Go code might be overkill unless you have a really clean example ready.
-
-⚠️ **"I struggled with error handling"** - this is honest but be careful about framing. You could say: "The compiler forced me to handle errors I would have ignored in other languages - frustrating at first, but exactly what you want when you're messing with system calls."
-
----
-
-## Section 5: nix Crate
-
-### Your Draft
-> My BFF crate is nix. It provides a safe alternative to unsafe APIs that are exposed by the libc crate.
->
-> "Nix provides a safe alternative to the unsafe APIs exposed by the libc crate. This is done by wrapping the libc functionality with types/abstractions that enforce legal/safe usage."
+[EXAMPLEFROMNIX]
 
 ```rust
 // libc api (unsafe, requires handling return code/errno)
@@ -157,182 +111,88 @@ pub unsafe extern fn gethostname(name: *mut c_char, len: size_t) -> c_int;
 pub fn gethostname() -> Result<OsString>;
 ```
 
-### Notes
-✅ **This example is perfect.** Clear, concrete, immediately shows the value.
+6. Building a MVRC (minimal viable rootless container)
 
-✅ **"My BFF crate"** - good personality, keeps it light.
+Alright, it's time to start coding ourselves a MvRC. We'll be focusing more today on using namespaces to get process isolation and will save cgroups for later.
 
-💡 **Suggestion:** Combine Sections 4 and 5 into "Why Rust + The Tools We'll Use" (~3-4 min total). Flow:
-1. "I wanted a challenging project while learning Rust"
-2. "Turns out Rust is great for this - here's what youki says..."
-3. "The nix crate is what makes this ergonomic" + show the comparison
+Similar to:
+docker run <image> <command> <argv>
+cargo run -- <command> <argv>
 
----
+<CodePortion  />
+[build the test cli!]
 
-## Section 6: Building a MVRC (minimal viable rootless container)
+<TerminalPortion />
+[make a process sleep then show its pid, then its namespaces]
 
-### Your Draft
+**namespaces** allow or this illusion isolation [!!!ELABORATE!!!]
+[example] make a process sleep, then in another terminal run ps -eaf | grep sleep, find tht pid, then ls /proc/<pid>/ns and show the namespaces available to the process
 
-**Goal:**
-> Similar to: `docker run <image> <command> <argv>`
-> We'll do: `cargo run -- <command> <argv>`
+//\***\* Old but still usable
+**/proc** [!!REWRITE_FROM_MANPAGES!!]
+The proc filesystem is a pseudo-filesystem which provides an
+interface to kernel data structures. It is commonly mounted at
+`/proc`. Typically, it is mounted automatically by the system, but
+it can also be mounted manually using a command such as:
+** //
 
-**Namespaces to cover:**
-- user - user and group IDs isolation
+- namespaces restrict and limit what the process can see [!!!LIZRICE!!!]
+  set using kernel syscalls
+
+[Detail what each namespace is and does]
+namespaces:
+[Claude, am I missing anything?]
+
+- user - user and group ids isolation
 - mount - mounts seen by the process
-- pid - isolates the process ID
+- pid - isolates the process id
 - uts - isolates hostname of process
-- (mention but skip: network, ipc)
+  --- not covered in this talk but equally important --
+  network - isolation of networking system resources
+  ipc - "isolate between different IPC resources like message queues, semaphores and shared memory." - Shlomi Boutnaru, Ph.D
 
-**Syscalls to use:**
-- `unshare()` - control shared execution context
-- `mount/umount()` - attach/detach filesystem
-- `execv` - replace current process image
-- `fork()` - duplicate calling process
-- `chroot()` - change root directory
+We can cause affect to the process namespaces using syscalls (system calls) which are APIs provided by the Linux Kernel
+syscalls:
 
-**Build flow (under construction):**
-1. Build test CLI
-2. Show process namespaces via `/proc/<pid>/ns`
-3. Use nix crate, add getpid
-4. Unshare PID namespace (still sudo)
-5. Show PID is 1 inside container
-6. Try UTS - realize we need sudo
-7. Explain UID/GID mapping for rootless
-8. "We rootless, baby!"
-9. Unshare mount namespace
-10. Use pre-extracted busybox rootfs
-11. chroot + change working dir
-12. Demo: inside thinks it's root, can't access host FS
-13. Show PID from inside vs outside
+- unshare(): "allow a process to control its shared execution context" - unshare(2)
+- mount/umount(): attaches or detaches a filesystem
+- execv - replaces current process image with another (not a new process)
+- fork():
+  "creates a new process by duplicating the calling process.
+  The new process is referred to as the child process. The calling
+  process is referred to as the parent process." - fork(2)
+- chroot(): Changes the processes root directory of the process
 
-### Notes
-✅ **This is the main event.** The flow makes sense conceptually.
+references:
+https://man7.org/linux/man-pages/man7/namespaces.7.html
+https://man7.org/linux/man-pages/man7/cgroups.7.html
 
-⚠️ **"Flow under construction"** - this is where you need to invest time. Suggestions:
+https://man7.org/linux/man-pages/man2/unshare.2.html
+https://man7.org/linux/man-pages/man2/umount.2.html
+https://man7.org/linux/man-pages/man8/mount.8.html
+https://man7.org/linux/man-pages/man2/execve.2.html
+https://man7.org/linux/man-pages/man2/fork.2.html
+https://man7.org/linux/man-pages/man2/chroot.2.html
 
-**Structure the live coding more explicitly:**
+<CodePortion  /> //**FLOW UNDER CONSTRUCTION**//
+[Use the nix crate to add getpid and display it in rust]
 
-| Step | What you type/show | What audience learns |
-|------|-------------------|---------------------|
-| 1 | `sleep 1000 &` then `ls /proc/<pid>/ns` | "Every process has namespaces" |
-| 2 | Show your Cargo.toml with nix | "Here's our starting point" |
-| 3 | Basic CLI that calls getpid() | "We can call syscalls from Rust" |
-| 4 | Add unshare(CLONE_NEWPID) | "Now we isolate PID namespace" |
-| 5 | Run it - PID is 1! | "The process thinks it's init" |
-| ... | etc | ... |
+[still using sudo]
+unshare pid and show the process id before and after. If the child is 1, we've made a very simple container by isolating the process
 
-**Write out the exact commands and code snippets** you'll type/show. No improvising during live coding.
+[Try and change the UTS and you'll see we need to be sudo. Show that we can run it using sudo, but that's not what we want.]
 
-❓ **Do you have the busybox rootfs ready?** Make sure this is pre-downloaded and tested before the talk.
+[explain the uid and gid mapping. to go rootless and now we can run the container as its own root]
 
-⚠️ **Namespace list:** You're missing `cgroup` namespace (different from cgroups the feature). That's fine to skip, but be aware someone might ask.
+[We rootless, baby!]
+[unshare the mount ns]
 
-⚠️ **The `/proc` explanation** - you have it marked as "old but still usable" and "rewrite from manpages." For the talk, you just need one sentence: "/proc is a pseudo-filesystem that exposes kernel data structures - we'll use it to see our process's namespaces."
+[explain that there is a already extracted, busybox rootfs from docker hub]
 
----
+[chroot, and change current working dir]
 
-## Section 7: [Optional] Compare to Go
+[demonstrate it thinks it's root and the fs it has. try running something from outside the container and you cant. make it sleep. show the pid, then from outside the container the pid it really is from the parent perspective]
 
-### Notes
-❌ **Recommendation: Cut this.** 
-
-You already mention Go in Section 4 via the youki quote. Actually showing Go code is:
-- Extra prep work
-- Risk of spending time on something tangential
-- Potentially alienating if Go folks in audience
-
-If someone asks "why not Go?" in Q&A, you have the youki quote ready.
-
----
-
-## Section 8: Bento Demo
-
-### Your Draft
-(No content provided)
-
-### Notes
-❓ **Key question: How is this different from the MVRC you just built?**
-
-Options:
-1. **MVRC = minimal version, Bento = full version.** After the teaching section, show "here's what I built on top of this - OCI image parsing, daemon mode, proper lifecycle management." (This is probably what you mean?)
-
-2. **They're the same thing.** In which case, merge this with Section 6 and just end with a polished demo.
-
-**Suggestion for Option 1:**
-- 2-3 minutes max
-- Show the real `bento` CLI: `bento create`, `bento start`, `bento exec`
-- "Everything we built today is the foundation - here's what you can build on top"
-- Maybe show one thing the audience didn't build: OCI image parsing or overlay filesystem
-
----
-
-## Section 9: Kahoot
-
-### Notes
-You said we'll cross this bridge later. Fair.
-
-**If you keep it:**
-- 5 questions max
-- Quiz on concepts from the talk (namespaces, syscalls, rootless)
-- Have a backup plan if wifi fails
-
-**If you cut it:**
-- More time for Q&A
-- Less risk
-- First talk = simpler is better
-
----
-
-## Section 10: Q&A
-
-### Notes
-✅ Standard. 
-
-**Prep for likely questions:**
-- "Why not just use Docker?" → Learning exercise, understanding internals
-- "How does this compare to youki/runc?" → Much simpler, educational, not production
-- "What about cgroups?" → Scope for another talk, namespaces first
-- "Can this run on Mac?" → No, Linux kernel only, need WSL2/VM/native Linux
-- "What's next for bento?" → OCI spec compliance, cgroups, maybe network namespace
-
----
-
-## Open Questions to Resolve
-
-| Question | Your Options | Recommendation |
-|----------|--------------|----------------|
-| Show cgroups? | Explain briefly / Cut entirely | Cut - cleaner scope |
-| Rootless Docker demo? | Live / Pre-recorded / Static slide | Pre-record or static |
-| Show Go comparison? | In Section 4 / Separate section / Cut | Cut |
-| MVRC vs Bento demo? | Same thing / Different scope | Clarify - probably different scope |
-| Kahoot? | Keep / Cut | Decide after timing a practice run |
-| Time slot? | Unknown | FIND OUT - drives all other decisions |
-
----
-
-## Suggested Revised Structure
-
-| # | Section | Time Est. |
-|---|---------|-----------|
-| 1 | Intro - Who am I, the bento story | 2 min |
-| 2 | VMs vs Containers (namespaces focus, cgroups acknowledged but skipped) | 5 min |
-| 3 | Why Rootless Matters (pre-recorded demo or slide) | 3 min |
-| 4 | Why Rust + nix crate (combined) | 4 min |
-| 5 | Building the MVRC (main event, live coding) | 20 min |
-| 6 | Full Bento Demo (show what you built beyond MVRC) | 5 min |
-| 7 | Q&A | remaining |
-| — | Kahoot (optional, if time/energy) | 5-10 min |
-
-**Total without Kahoot:** ~40 min + Q&A
-**Total with Kahoot:** ~50 min + Q&A
-
----
-
-## Next Steps
-
-1. **Find out your time slot.** Everything else depends on this.
-2. **Write out the exact MVRC build steps** with code snippets you'll show.
-3. **Decide on the cgroups/Go/Kahoot cuts** based on timing.
-4. **Practice once end-to-end** with a timer. See where you actually land.
-5. **Pre-record the rootless Docker demo** as a safety net.
+7. Kahoot
+8. Bento Demo
+9. Q&A
