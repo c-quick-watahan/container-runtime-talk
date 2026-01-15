@@ -11,58 +11,62 @@
 9. Kahoot
 10. Q&A
 
-11. Intro? Who am I?
+## Section 1: Intro - Who am I?
 
-- SWE at Watahan in Tokyo. During my lunch break one day, I was thinking about the Docker environment, like I'm sure everyone here spends their lunch breaks. Staring at my bento lunch from Life, I started thinking about the meaning of containers and what when into them. I learned the basics of what containers are and decided to venture on a journey to learn to make my own. I was curious about Docker under the hood. Project is so cleverly called: bento.
+Hi, Rustaceans. My name is Carlo Quick and I am a SWE at Watahan in Tokyo. Like many of you, I sometimes spend my lunch breaks thinking about Docker containers. So one day I'm sitting in the park outside work, eating a bento - if you've never had one, they're these pre-packaged meals you can get almost anywhere in Japan - and I realize I have no idea what a container actually is under the hood. (On this one particular lunch break, I found myself staring at my bento container wondering what Docker does under the hood.)
 
-2. VMs vs. Containers (namespaces and cgroups)
+I set out to learn the basics and quickly became very interested. I don't want to get ahead of myself. We'll visit what became of my lunch later in the talk.
+
+Today, we are going to build a Minimal Viable Rootless Container in Rust. By the end of this talk, you'll understand how containers actually isolate processes and have the tools to build one yourself.
+
+So let's get started by understanding the differences between virtual machines and containers.
+
+## Section 2: VMs vs. Containers (namespaces and cgroups)
 
 Before starting this project, I assumed two things were the possible outcomes of running
-`docker run -it --name my-ubuntu-container ubuntu /bin/bash`
+`docker run -it --name busybox-container busybox /bin/sh`
 
-1. I thought their were a bunch of vms running on my mac
-2. magic
+1. There were a bunch of VMs running on my local machine, or
+2. Magic
 
-I first started with VM vs Container
+(I could imagine little binary Harry Potters waving a wand and saying "Creatus Busyboxus Continens" and poof, I had busybox up and running)
 
-**Containers** vs **VMs**: What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
+First, what's a container and how do they compare to Virtual Machines?
 
-**vms**:
+**VMs:**
 
-- hardware virtualization
-  machine vitualization
-- vm isolated operating system (hypervisors)
-- hypervisor = software to divy up resources from the computer host
-  vcpu, vram, vnet
+- Hardware/machine virtualization
+- Each VM is an isolated operating system
+- Hypervisor divvies up host resources (vCPU, vRAM, vNet)
+- Stack: Hypervisor → Hardware
 
--> hypervisor = responsible for creating these virtualized instances of each component that make the machines
--> hardware
+**Containers:**
 
-containers:
+- Isolated processes
+- Shared OS kernel, but each container thinks it's independent
+- Not a new concept, but usage has become standard
+- Stack: Containers → Host OS → Kernel → Hardware
 
-- isolated processes [!!REMINDER!!] Dont forget to mention the OFFICE reference
-- shared os but think they are separate os, independent from the rest.
+**How does Linux pull this off?**
 
-concept isn't necessarily new, but their usage has become quite popular or standard -
-operating system level virtualization
--> containers
--> host os: hosts the containers
--> kernel
--> hardware
+- **Namespaces** - regulate what a process can see or access
+- **Cgroups** - control what resources a process can use (CPU, memory, PIDs, etc.)
 
-linux kernel (specific, explain that a linux vm, container, linux machine, or wsl2 are needed to follow along as these topics are specific to the linux kernel) -
-**namespaces**
+**The Office Analogy:**
 
-- namespaces restrict what the process can see [!!!LIZRICEQUOTE!!!]
-  set using kernel syscalls
-  [CLAUDE, show the namespaces for a process now or when doing the container?]
+In the Office, there's an episode where Michael Scott ventures into the wilderness thinking he's surviving alone. What he doesn't know is Dwight is watching the entire time, ready to intervene. Michael thinks he's independent, but Dwight sees everything and controls whether Michael survives or not.
 
-**cgroups** = resource control [!!!ELABORATE!!!]
-What resources the process can use.
+That's container isolation. The container thinks it's its own OS with PID 1 and its own root filesystem. It can't see the host, but the host sees everything and can even shut it down whenever it wants.
 
-- pseudo-filesystem
-- usable resources
-  [Claude, is there a good way to show or demonstrate this? Should I, if I'm not actually talking about the cgroups in the talk.]
+---
+
+Containers use namespaces for isolation and cgroups for resource limits. Today we're focusing on namespaces - cgroups is a whole separate talk.
+
+Now let's talk about going rootless.
+
+---
+Resources:
+What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
 
 3. Rootless Containers
 
