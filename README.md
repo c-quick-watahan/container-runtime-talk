@@ -96,30 +96,23 @@ ps -eaf | grep sleep
 
 Now on to the Rusty-bits
 
-## 4. Why Rust?
+## 4. Why Rust + The Tools We'll Use
 
-I was looking for a project while going through the Rust book and thus began my journey on my project.
+I had just started my Rust journey when I started getting interested in containers. I was looking for a project while going through the Rust book, so I happened into this project using Rust instead of C or Go. Once I decided to use Rust and researched other Rust container runtimes, youki in particular, I was glad I made the choice.
 
-I understood the project was going to be quite complicated so I thought no better reason than to fascilitate this preciecd complexity with the safety that rust offer.
+I understood the project was going to be quite complicated so I thought no better reason than to facilitate this perceived complexity with the safety that Rust offers.
 
-There was the learning curve of course, but using rust forced me to think deeply before implementation. Even though I struggled with error handling, I was glad it was there.
+There was the learning curve of course, but using Rust forced me to think deeply before implementation. Even though I struggled with error handling, I was glad it was there. The Rust compiler forced me to handle errors, the borrow checker enforced memory safety - things I would have ignored in other languages. Frustrating at first, but exactly what you want when you're messing with system calls.
 
-I don't have an current metrics but I can refer you to the other major player in the Rust containization field - youki.
-[picture and description of youki metrics and inspiration to use Rust]
+There are many great container tools written in other languages. However, there are trade offs that make Rust a strong candidate for the future of containerization. Syscalls can be trickier to use in Go vs Rust, and Rust provides memory safety over C implementations. [Youki]
 
-From youki:
-Here is why we are writing a new container runtime in Rust.
+So how do we actually call Linux syscalls from Rust? Enter my bff crate: nix.
 
-    Rust is one of the best languages to implement the oci-runtime spec. Many very nice container tools are currently written in Go. However, the container runtime requires the use of system calls, which requires a bit of special handling when implemented in Go. This is tricky (e.g. namespaces(7), fork(2)); with Rust too, but it's not that tricky. And, unlike in C, Rust provides the benefit of memory safety. While Rust is not yet a major player in the container field, it has the potential to contribute a lot: something this project attempts to exemplify.
+### nix crate
 
-[!!REMINDER!!] Find an example here to demonstrate this. [!!!OPTIONAL!!!] Reference Go example later.
+We'll be using nix for unshare, mount, chroot, and other syscalls throughout the build.
 
-##  5. nix Crate
-   My bff crate is nix. It provides a safe alternative to unsafe APIs that are exposed by the libc crate.
-
-"Nix provides a safe alternative to the unsafe APIs exposed by the libc crate. This is done by wrapping the libc functionality with types/abstractions that enforce legal/safe usage." - https://docs.rs/crate/nix/latest
-
-[EXAMPLEFROMNIX]
+"Nix provides a safe alternative to the unsafe APIs exposed by the libc crate. This is done by wrapping the libc functionality with types/abstractions that enforce legal/safe usage."
 
 ```rust
 // libc api (unsafe, requires handling return code/errno)
@@ -129,7 +122,12 @@ pub unsafe extern fn gethostname(name: *mut c_char, len: size_t) -> c_int;
 pub fn gethostname() -> Result<OsString>;
 ```
 
-## 6. Building a MVRC (minimal viable rootless container)
+Enough talk, let's build!
+
+### Resources:
+https://docs.rs/crate/nix/latest
+
+## 5. Building a MVRC (minimal viable rootless container)
 
 Alright, it's time to start coding ourselves a MvRC. We'll be focusing more today on using namespaces to get process isolation and will save cgroups for later.
 
@@ -211,6 +209,6 @@ unshare pid and show the process id before and after. If the child is 1, we've m
 
 [demonstrate it thinks it's root and the fs it has. try running something from outside the container and you cant. make it sleep. show the pid, then from outside the container the pid it really is from the parent perspective]
 
-## 7. Kahoot
-## 8. Bento Demo
-## 9. Q&A
+## 6. Kahoot
+## 7. Bento Demo
+## 8. Q&A
