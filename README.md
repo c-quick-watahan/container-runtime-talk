@@ -21,54 +21,52 @@ Today, we are going to build a Minimal Viable Rootless Container in Rust. By the
 
 So let's get started by understanding the differences between virtual machines and containers.
 
-2. VMs vs. Containers (namespaces and cgroups)
+## Section 2: VMs vs. Containers (namespaces and cgroups)
 
 Before starting this project, I assumed two things were the possible outcomes of running
-`docker run -it --name my-ubuntu-container ubuntu /bin/bash`
+`docker run -it --name busybox-container busybox /bin/sh`
 
-1. I thought their were a bunch of vms running on my mac
-2. magic
+1. There were a bunch of VMs running on my local machine, or
+2. Magic
 
-I first started with VM vs Container
+(I could imagine little binary Harry Potters waving a wand and saying "Creatus Busyboxus Continens" and poof, I had busybox up and running)
 
-**Containers** vs **VMs**: What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
+First, what's a container and how do they compare to Virtual Machines?
 
-**vms**:
+**VMs:**
 
-- hardware virtualization
-  machine vitualization
-- vm isolated operating system (hypervisors)
-- hypervisor = software to divy up resources from the computer host
-  vcpu, vram, vnet
+- Hardware/machine virtualization
+- Each VM is an isolated operating system
+- Hypervisor divvies up host resources (vCPU, vRAM, vNet)
+- Stack: Hypervisor → Hardware
 
--> hypervisor = responsible for creating these virtualized instances of each component that make the machines
--> hardware
+**Containers:**
 
-containers:
+- Isolated processes
+- Shared OS kernel, but each container thinks it's independent
+- Not a new concept, but usage has become standard
+- Stack: Containers → Host OS → Kernel → Hardware
 
-- isolated processes [!!REMINDER!!] Dont forget to mention the OFFICE reference
-- shared os but think they are separate os, independent from the rest.
+**How does Linux pull this off?**
 
-concept isn't necessarily new, but their usage has become quite popular or standard -
-operating system level virtualization
--> containers
--> host os: hosts the containers
--> kernel
--> hardware
+- **Namespaces** - regulate what a process can see or access
+- **Cgroups** - control what resources a process can use (CPU, memory, PIDs, etc.)
 
-linux kernel (specific, explain that a linux vm, container, linux machine, or wsl2 are needed to follow along as these topics are specific to the linux kernel) -
-**namespaces**
+**The Office Analogy:**
 
-- namespaces restrict what the process can see [!!!LIZRICEQUOTE!!!]
-  set using kernel syscalls
-  [CLAUDE, show the namespaces for a process now or when doing the container?]
+In the Office, there's an episode where Michael Scott ventures into the wilderness thinking he's surviving alone. What he doesn't know is Dwight is watching the entire time, ready to intervene. Michael thinks he's independent, but Dwight sees everything and controls whether Michael survives or not.
 
-**cgroups** = resource control [!!!ELABORATE!!!]
-What resources the process can use.
+That's container isolation. The container thinks it's its own OS with PID 1 and its own root filesystem. It can't see the host, but the host sees everything and can even shut it down whenever it wants.
 
-- pseudo-filesystem
-- usable resources
-  [Claude, is there a good way to show or demonstrate this? Should I, if I'm not actually talking about the cgroups in the talk.]
+---
+
+Containers use namespaces for isolation and cgroups for resource limits. Today we're focusing on namespaces - cgroups is a whole separate talk.
+
+Now let's talk about going rootless.
+
+---
+Resources:
+What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
 
 3. Rootless Containers
 
