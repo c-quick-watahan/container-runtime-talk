@@ -68,21 +68,35 @@ Now let's talk about going rootless.
 Resources:
 What's the difference?: https://www.youtube.com/watch?v=cjXI-yxqGTI
 
-3. Rootless Containers
+## 3. Rootless Containers
 
-containers are lightweight and portable process isolation on the host machine. Since they share are host kernel, additional security needs to be implemented to ensure proper isolation.
+Containers are lightweight and portable process isolation on the host machine. Since they share the host kernel, additional security needs to be implemented to ensure proper isolation.
 
-By default, containers, for example, from Docker run as root from the host. Unless specified, they run as root which is the same root as on the host.
+By default, Docker containers run as root - and that's the same root as on your host machine. If someone escapes the container, they're root on your host.
 
-Rootless Containers run with non-root users to mitigate potntial vulnerabilities.
+Rootless Containers run with non-root users to mitigate potential vulnerabilities.
 
-Today we'll bne building a MVRC (minimal viable rootless container) in Rust.
+Today we'll be building a MVRC (minimal viable rootless container) in Rust.
 
-[EXAMPLE]
-[Claude, should I show this example or not? It may take too long and not super important especially if I have to wait for Docker to do shit.]
-run docker container, sleep 1000, then in another terminal ps -eaf | grep sleep and show it's as root (not container root). Mention you can run docker containers rootles, but arent be default.
+<Terminal Demo /> or pre-recorded GIF/static image on the slide
 
-4. Why Rust?
+```bash
+docker run -it --name busybox-container busybox /bin/sh
+    #/ whoami
+    #/ sleep 1000
+```
+
+in a different terminal window
+
+```bash
+ps -eaf | grep sleep
+```
+
+> Run docker container, sleep 1000, then in another terminal ps -eaf | grep sleep and show it's as root (not container root). Mention you can run docker and podman containers rootless, but aren't by default.
+
+Now on to the Rusty-bits
+
+## 4. Why Rust?
 
 I was looking for a project while going through the Rust book and thus began my journey on my project.
 
@@ -100,7 +114,7 @@ Here is why we are writing a new container runtime in Rust.
 
 [!!REMINDER!!] Find an example here to demonstrate this. [!!!OPTIONAL!!!] Reference Go example later.
 
-5. nix Crate
+##  5. nix Crate
    My bff crate is nix. It provides a safe alternative to unsafe APIs that are exposed by the libc crate.
 
 "Nix provides a safe alternative to the unsafe APIs exposed by the libc crate. This is done by wrapping the libc functionality with types/abstractions that enforce legal/safe usage." - https://docs.rs/crate/nix/latest
@@ -115,7 +129,7 @@ pub unsafe extern fn gethostname(name: *mut c_char, len: size_t) -> c_int;
 pub fn gethostname() -> Result<OsString>;
 ```
 
-6. Building a MVRC (minimal viable rootless container)
+## 6. Building a MVRC (minimal viable rootless container)
 
 Alright, it's time to start coding ourselves a MvRC. We'll be focusing more today on using namespaces to get process isolation and will save cgroups for later.
 
@@ -197,6 +211,6 @@ unshare pid and show the process id before and after. If the child is 1, we've m
 
 [demonstrate it thinks it's root and the fs it has. try running something from outside the container and you cant. make it sleep. show the pid, then from outside the container the pid it really is from the parent perspective]
 
-7. Kahoot
-8. Bento Demo
-9. Q&A
+## 7. Kahoot
+## 8. Bento Demo
+## 9. Q&A
